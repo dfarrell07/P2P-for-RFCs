@@ -9,14 +9,17 @@ s = socket.socket()
 host = socket.gethostname()
 port = 7734
 s.bind((host, port))
-
-s.listen(5)
+s.listen(5)#May need to change this param
 
 while True:
     c, addr = s.accept()
+    #Need to spawn a new process for each new peer
     print 'Got connection from', addr
     print c.recv(1024)
     c.close()
+
+def peer():
+    print "I'm a new peer"
 
 class rfc_node:
     def __init__(self):
@@ -37,7 +40,7 @@ class rfc_linked_list:
         new_node.next = self.cur_node
         self.cur_node = new_node
 
-    def print_list(self):
+    def print_list(self):#Likely need to return as string, not print
         node = self.cur_node 
         while node:
             print node.rfc_num
