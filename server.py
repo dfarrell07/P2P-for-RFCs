@@ -4,22 +4,9 @@
 
 import socket
 import random
+from multiprocessing import Process
 
-s = socket.socket()
-host = socket.gethostname()
-port = 7734
-s.bind((host, port))
-s.listen(5)#May need to change this param
-
-while True:
-    c, addr = s.accept()
-    #Need to spawn a new process for each new peer
-    print 'Got connection from', addr
-    print c.recv(1024)
-    c.close()
-
-def peer():
-    print "I'm a new peer"
+#Build data structures
 
 class rfc_node:
     def __init__(self):
@@ -71,3 +58,48 @@ class peer_linked_list:
             print node.hostname
             print node.port
             node = node.next
+
+rll = rfc_linked_list()
+pll = peer_linked_list()
+
+#Setup networking
+s = socket.socket()
+host = socket.gethostname()
+port = 7734#Well-known server port
+s.bind((host, port))
+s.listen(5)#May need to change this param
+
+#Function to handle interactions with a peer
+def manage_peer(con, addr):
+    print 'SERVER: Managing new peer', addr
+    while True:
+        #Get message from peer
+        message = con.recv(4096)
+        if message == "":
+            print "Message from peer was null\n" + message,
+            con.send("Your message was null:\n" + message)
+            continue
+        marray = message.lower().split()
+
+        #Handle message
+        if marray[0] == 'list' and marray[1] == 'all' and marray[3] == 'host:' and marray[5] == 'port:': 
+            print "SERVER: Recieved LIST: \n" + message,
+            con.send("I got your LIST request")
+        elif marray[0] == 'lookup' and marray[3] == 'host:' and marray[5] == 'port:' and marray[7] == 'title:':
+            print "SERVER: Recieved LOOKUP: \n" + message,
+            con.send("I got your LOOKUP request")
+        elif marray[0] == 'add' and marray[3] == 'host:' and marray[5] == 'port:' and marray[7] == 'title:':
+            print "SERVER: Recieved ADD: \n" + message,
+            con.send("I got your ADD request")
+        else:
+            print "Invalid request from peer:\n" + message,
+            con.send("Your request was invalid:\n" + message)
+
+#Accept new peers and spawn them each a process
+while True:
+    con, addr = s.accept()#XXX Here we bind, listen and then accept a connection
+    #Need to spawn a new process for each new peer
+    p = Process(target=manage_peer, args=(con, addr))
+    p.daemon = True
+    p.start()
+

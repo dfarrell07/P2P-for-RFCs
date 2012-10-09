@@ -5,51 +5,60 @@ import random
 import sys
 import time
 from multiprocessing import Process, Value
+import datetime
 
 VERSION = "P2P-CI/1.0"
-sport = 7734#Server's port
+sport = 7734#Server's well-known port
 OS = sys.platform
 
-#Need to spawn upload server process
+#Spawn upload server process
 uport = random.randint(45000, 60000)#Upload port
 
 def ul_server(uport):
-    print "I'm the upload sever on port " + str(uport)
+    """TODO"""
+    #Listen on uport
+    s = socket.socket()
+    host = socket.gethostname()
+    s.bind((host, uport))
+    s.listen(1)#not sure if this param is right
+    print "PEER: Upload server started, listening on port " + str(uport)
     while True:
-        #Listen on uport
-        s = socket.socket()
-        host = socket.gethostname()
-        s.bind((host, uport))
-        s.listen(1)#not sure if this param is right
-
         #Get message
-        c, addr = s.accept()
-        message = c.recv()
+        con, addr = s.accept()
+        message = con.recv()
         marray = message.split()
 
         #Validate message TODO
         if marray[0] != 'GET' or marray[4] != 'Host:' or marray[6] != 'OS:':
-            s.send(VERSION + "400 Bad Request\r\nDate: " + TODO_date 
+            con.send(VERSION + "400 Bad Request\r\nDate: " 
+            + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"))
             + "\r\nOS: " + OS)
             continue
         if marray[3] != VERSION:
-            s.send(VERSION + "505 P2P-CI Version Not Supported\r\nDate: " 
-            + TODO_date + "\r\nOS: " + OS)
+            con.send(VERSION + "505 P2P-CI Version Not Supported\r\nDate: " 
+            + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")) 
+            + "\r\nOS: " + OS)
             continue
 
 
-        #Lookup RFC
+        #Lookup RFC TODO - how we we get the RFCs?
 
         
         if True: #TODO If RFC found
-            s.send(VERSION + "200 OK \r\nDate: " + TODO_date + "\r\nOS: " + OS
-                + "\r\nLast-Modified: " + TODO_lm + "\r\nContent-Length: " 
+            con.send(VERSION + "200 OK \r\nDate: " 
+                + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")) 
+                + "\r\nOS: " + OS + "\r\nLast-Modified: " 
+                + TODO_lm + "\r\nContent-Length: " 
                 + TODO_cl + "\r\nContent-Type: " + TODO_ct + "\r\n" + TODO_data)
             continue
         else: #TODO If RFC not found
-            s.send(VERSION + "404 Not Found\r\nDate: " + TODO_date 
+            con.send(VERSION + "404 Not Found\r\nDate: " 
+                + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"))
                 + "\r\nOS: " + OS)
             continue
+        print "PEER: Upload server on port " + uport + " is closing"
+        con.close()
+        print "PEER: Upload server on port " + uport + " is closed"
 
 p = Process(target=ul_server, args=(uport,))
 p.daemon = True
@@ -59,9 +68,24 @@ p.start()
 s = socket.socket()
 me = socket.gethostname()
 server = me #Assuming client and server are on the same machine
-s.connect((server, sport))
+s.connect((server, sport))#XXX Here we use connect
+
+#Define messages to server
+def do_add(rfc_num, title, host = me, port = uport):
+    """Add a locally available RFC to the server's index"""
+    s.send("ADD " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
+    + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
+    + str(title) + "\r\n\r\n")
+
+#    s.send('ADD {rfc_num!s} {version!s}\r\nHost: {host!s}\r\nPort: {port!s}\r\nTitle: '
+#        + '{title!s}\r\n\r\n'.format(rfc_num=rfc_num, version=VERSION, \
+#        host=host, port=port, title=title))
+
+    response = s.recv(2048)
+    #validate response
 
 def do_lookup(rfc_num, title, host = me, port = uport):
+    """Find peers that have the specifed RFC"""
     s.send("LOOKUP " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
     + str(title) + "\r\n\r\n")
@@ -70,21 +94,17 @@ def do_lookup(rfc_num, title, host = me, port = uport):
     #validate response
 
 def do_list(host = me, port = uport):
-    s.send("LOOKUP ALL " + VERSION + "\r\n" + "Host: " + str(host) + "\r\n" 
+    """Request the whole index of RFCs from the server"""
+    s.send("LIST ALL " + VERSION + "\r\n" + "Host: " + str(host) + "\r\n" 
     + "Port: " + str(port) + "\r\n\r\n")
 
-    response = s.recv(2048)
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: " + response
     #validate response
 
-def do_add(rfc_num, title, host = me, port = uport):
-    s.send("ADD " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
-    + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
-    + str(title) + "\r\n\r\n")
-
-    response = s.recv(2048)
-    #validate response
-
+# Define messages to peers TODO Currently sends to server
 def do_get(rfc_num, host = me, OS = OS):
+    """Request an RFC from a peer"""
     s.send("GET " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "OS: " + str(OS) + "\r\n\r\n")
 
@@ -92,10 +112,42 @@ def do_get(rfc_num, host = me, OS = OS):
     #validate response
 
 
+# TODO Send peer's information to server 
+
+# TODO Take commands from user via CLI and send messages to server and peers
+time.sleep(.3)#Might should use a lock here TODO
+while True:
+    #Take command from user
+    command = raw_input("=> ")
+    if command == "":
+        continue
+    command = command.lower().split()
+
+    #Handle command
+    if command[0] == "exit":
+        s.close
+        p.terminate()
+        sys.exit(0)
+    elif command[0] == "get":
+        do_get(command[1])
+    elif command[0] == "list":
+        do_list()
+    elif command[0] == "lookup":
+        do_lookup(command[1], command[2])
+    elif command[0] == "add":
+        do_add(command[1], command[2])
+    elif command[0] == "help":
+        print "help\t\t:\tPrint this help message"
+        print "exit\t\t:\tClose the peer's connections and process"
+        print "get <rfc_num>\t:\tDownload the given RFC"
+    else:
+        print "Invalid command, see 'help'"
+        
+
 #do_add(123, "First title")
 #do_get(123)
 #do_list()
-do_lookup(123, "First title")
+#do_lookup(123, "First title")
 s.close
 
 
