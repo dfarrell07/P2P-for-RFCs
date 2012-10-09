@@ -28,7 +28,7 @@ def ul_server(uport):
         message = con.recv()
         marray = message.split()
 
-        #Validate message TODO
+        #Validate message
         if marray[0] != 'GET' or marray[4] != 'Host:' or marray[6] != 'OS:':
             con.send(VERSION + "400 Bad Request\r\nDate: " 
             + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"))
@@ -68,12 +68,12 @@ p.start()
 s = socket.socket()
 me = socket.gethostname()
 server = me #Assuming client and server are on the same machine
-s.connect((server, sport))#XXX Here we use connect
+s.connect((server, sport))
 
 #Define messages to server
 def do_add(rfc_num, title, host = me, port = uport):
     """Add a locally available RFC to the server's index"""
-    s.send("ADD " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
+    s.send("ADD RFC " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
     + str(title) + "\r\n\r\n")
 
@@ -81,16 +81,18 @@ def do_add(rfc_num, title, host = me, port = uport):
 #        + '{title!s}\r\n\r\n'.format(rfc_num=rfc_num, version=VERSION, \
 #        host=host, port=port, title=title))
 
-    response = s.recv(2048)
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: " + response,
     #validate response
 
 def do_lookup(rfc_num, title, host = me, port = uport):
     """Find peers that have the specifed RFC"""
-    s.send("LOOKUP " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
+    s.send("LOOKUP RFC " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
     + str(title) + "\r\n\r\n")
 
-    response = s.recv(2048)
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: " + response,
     #validate response
 
 def do_list(host = me, port = uport):
@@ -99,7 +101,7 @@ def do_list(host = me, port = uport):
     + "Port: " + str(port) + "\r\n\r\n")
 
     response = str(s.recv(2048))
-    print "PEER FROM SERVER: " + response
+    print "PEER FROM SERVER: " + response,
     #validate response
 
 # Define messages to peers TODO Currently sends to server
@@ -108,7 +110,8 @@ def do_get(rfc_num, host = me, OS = OS):
     s.send("GET " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "OS: " + str(OS) + "\r\n\r\n")
 
-    response = s.recv(2048)
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: " + response,
     #validate response
 
 
@@ -137,18 +140,14 @@ while True:
     elif command[0] == "add":
         do_add(command[1], command[2])
     elif command[0] == "help":
-        print "help\t\t:\tPrint this help message"
-        print "exit\t\t:\tClose the peer's connections and process"
+        print "help\t:\tPrint this help message"
+        print "exit\t:\tClose the peer's connections and process"
         print "get <rfc_num>\t:\tDownload the given RFC"
+        print "add <rfc_num> <rfc_title>\t:\tRegester the given RFC with the server"
+        print "lookup <rfc_num> <rfc_title>\t:\tGet info of peers with given RFC"
+        print "list\t:\tGet info about all RFCs known to server"
     else:
         print "Invalid command, see 'help'"
         
-
-#do_add(123, "First title")
-#do_get(123)
-#do_list()
-#do_lookup(123, "First title")
 s.close
-
-
-
+p.terminate()

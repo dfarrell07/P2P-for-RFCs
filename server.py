@@ -3,11 +3,12 @@
 #Cite: http://stackoverflow.com/questions/280243/python-linked-list
 
 import socket
-import random
 from multiprocessing import Process
+import sys
+
+VERSION = "P2P-CI/1.0"
 
 #Build data structures
-
 class rfc_node:
     def __init__(self):
         self.next = None
@@ -22,18 +23,27 @@ class rfc_linked_list:
     def add(self, rfc_num, rfc_title, hostname):
         new_node = rfc_node()
         new_node.rfc_num = rfc_num
-        new_node.rfc_title = rfc_title
-        new_node.hostname = hostname
+        new_node.rfc_title = str(rfc_title)
+        new_node.hostname = str(hostname)
         new_node.next = self.cur_node
         self.cur_node = new_node
 
-    def print_list(self):#Likely need to return as string, not print
+    def print_list(self):
         node = self.cur_node 
+        result = ""
         while node:
-            print node.rfc_num
-            print node.rfc_title
-            print node.hostname
+            result += str(node.rfc_num) + " " + node.rfc_title + " " + node.hostname + " " + str(pll.get_upload_port(node.hostname)) + "\r\n"
             node = node.next
+        return result
+
+    def lookup_rfc(self, rfc_num, rfc_title):
+        node = self.cur_node
+        result = ""
+        while node:
+            if node.rfc_num == rfc_num and node.rfc_title == rfc_title:
+                result += str(node.rfc_num) + " " + node.rfc_title + " " + node.hostname + " " + str(pll.get_upload_port(node.hostname)) + "\r\n"
+            node = node.next
+        return result
 
 class peer_node:
     def __init__(self):
@@ -59,8 +69,23 @@ class peer_linked_list:
             print node.port
             node = node.next
 
+    def get_upload_port(self, hostname):
+        node = self.cur_node
+        while node:
+            if node.hostname == hostname:
+                return node.port
+        return ""
+
 rll = rfc_linked_list()
 pll = peer_linked_list()
+
+"""
+rll.add("abc", 123, "host0")
+rll.add("abcd", 1234, "host1")
+rll.add("abcde", 12345, "host2")
+print rll.print_list(),
+sys.exit(0)
+"""
 
 #Setup networking
 s = socket.socket()
@@ -84,22 +109,33 @@ def manage_peer(con, addr):
         #Handle message
         if marray[0] == 'list' and marray[1] == 'all' and marray[3] == 'host:' and marray[5] == 'port:': 
             print "SERVER: Recieved LIST: \n" + message,
-            con.send("I got your LIST request")
-        elif marray[0] == 'lookup' and marray[3] == 'host:' and marray[5] == 'port:' and marray[7] == 'title:':
+            rfc_list = rll.print_list()
+            if rfc_list != "":
+                con.send(VERSION + " 200 OK\r\n\r\n" + rfc_list + "\r\n")
+            else:
+                con.send(VERSION + " 404 Not Found\r\n\r\n")
+        elif marray[0] == 'lookup' and marray[1] == 'rfc' and marray[4] == 'host:' and marray[6] == 'port:' and marray[8] == 'title:':
             print "SERVER: Recieved LOOKUP: \n" + message,
-            con.send("I got your LOOKUP request")
-        elif marray[0] == 'add' and marray[3] == 'host:' and marray[5] == 'port:' and marray[7] == 'title:':
+            lookup_result = rll.lookup_rfc(marray[2], marray[9])
+            if lookup_result != "":
+                con.send(VERSION + " 200 OK\r\n\r\n" + lookup_result + "\r\n")
+            else:
+                con.send(VERSION + " 404 Not Found\r\n\r\n")
+        elif marray[0] == 'add' and marray[1] == 'rfc' and marray[4] == 'host:' and marray[6] == 'port:' and marray[8] == 'title:':
             print "SERVER: Recieved ADD: \n" + message,
-            con.send("I got your ADD request")
+            rll.add(marray[2], marray[9], marray[5])#rfc_num, rfc_title, hostname
+            pll.add(marray[5], marray[7])#hostname, port
+            con.send(VERSION + " 200 OK\r\nRFC " + marray[2] + " " + marray[9] + " " + marray[5] + " " + marray[7] + "\r\n\r\n")
         else:
             print "Invalid request from peer:\n" + message,
-            con.send("Your request was invalid:\n" + message)
+            con.send(VERSION + " 400 Bad Request\r\n\r\n")
 
 #Accept new peers and spawn them each a process
 while True:
-    con, addr = s.accept()#XXX Here we bind, listen and then accept a connection
+    con, addr = s.accept()
     #Need to spawn a new process for each new peer
     p = Process(target=manage_peer, args=(con, addr))
     p.daemon = True
     p.start()
+    #TODO Need to delete orphaned data when a peer leaves the swarm
 
