@@ -49,7 +49,7 @@ def ul_server(uport):
                 + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")) 
                 + "\r\nOS: " + OS + "\r\nLast-Modified: " 
                 + TODO_lm + "\r\nContent-Length: " 
-                + TODO_cl + "\r\nContent-Type: " + TODO_ct + "\r\n" + TODO_data)
+                + TODO_cl + "\r\nContent-Type: text/plain\r\n" + TODO_data)
             continue
         else: #TODO If RFC not found
             con.send(VERSION + "404 Not Found\r\nDate: " 
@@ -104,7 +104,7 @@ def do_list(host = me, port = uport):
     print "PEER FROM SERVER: " + response,
     #validate response
 
-# Define messages to peers TODO Currently sends to server
+# Define messages to peers TODO Currently sends to server. Need to lookup peer host and upload port, then send connect and message them.
 def do_get(rfc_num, host = me, OS = OS):
     """Request an RFC from a peer"""
     s.send("GET " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
@@ -115,10 +115,12 @@ def do_get(rfc_num, host = me, OS = OS):
     #validate response
 
 
-# TODO Send peer's information to server 
+# TODO Send peer's hostname and upload port to server QUESTION: There's no message defined for this, although ADD would work. But, what if the peer doesn't have any RFCs to add?
 
-# TODO Take commands from user via CLI and send messages to server and peers
-time.sleep(.3)#Might should use a lock here TODO
+# TODO Send peer's RFCs QUESTION: how do we get these - search directory? input by user?
+
+# Take commands from user via CLI and send messages to server and peers
+time.sleep(.3)#Might should use a lock here TODO stretch requirement
 while True:
     #Take command from user
     command = raw_input("=> ")

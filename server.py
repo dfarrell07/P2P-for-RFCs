@@ -79,14 +79,6 @@ class peer_linked_list:
 rll = rfc_linked_list()
 pll = peer_linked_list()
 
-"""
-rll.add("abc", 123, "host0")
-rll.add("abcd", 1234, "host1")
-rll.add("abcde", 12345, "host2")
-print rll.print_list(),
-sys.exit(0)
-"""
-
 #Setup networking
 s = socket.socket()
 host = socket.gethostname()
@@ -97,6 +89,7 @@ s.listen(5)#May need to change this param
 #Function to handle interactions with a peer
 def manage_peer(con, addr):
     print 'SERVER: Managing new peer', addr
+    #TODO Need to add new peer's info to pll
     while True:
         #Get message from peer
         message = con.recv(4096)
@@ -107,6 +100,7 @@ def manage_peer(con, addr):
         marray = message.lower().split()
 
         #Handle message
+        #TODO Need to add version checks
         if marray[0] == 'list' and marray[1] == 'all' and marray[3] == 'host:' and marray[5] == 'port:': 
             print "SERVER: Recieved LIST: \n" + message,
             rfc_list = rll.print_list()
@@ -130,6 +124,8 @@ def manage_peer(con, addr):
             print "Invalid request from peer:\n" + message,
             con.send(VERSION + " 400 Bad Request\r\n\r\n")
 
+    #TODO Need to delete orphaned data when a peer leaves the swarm
+
 #Accept new peers and spawn them each a process
 while True:
     con, addr = s.accept()
@@ -137,5 +133,4 @@ while True:
     p = Process(target=manage_peer, args=(con, addr))
     p.daemon = True
     p.start()
-    #TODO Need to delete orphaned data when a peer leaves the swarm
 
