@@ -1,6 +1,10 @@
 #!/usr/bin/env python
+#File: client.py
+#Run with: "python ./client.py" 
+#Tested with: Python 2.7.3
 
 import socket
+import errno
 import random
 import sys
 import time
@@ -68,7 +72,14 @@ p.start()
 s = socket.socket()
 me = socket.gethostname()
 server = me #Assuming client and server are on the same machine
-s.connect((server, sport))
+
+#Cite: http://stackoverflow.com/questions/5161167/python-handling-specific-error-codes
+try:
+    s.connect((server, sport))
+except socket.error, v:
+    errorcode=v[0]
+    if errorcode==errno.ECONNREFUSED:
+        print "There is no server on " + server
 
 #Define messages to server
 def do_add(rfc_num, title, host = me, port = uport):
