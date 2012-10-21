@@ -2,6 +2,8 @@
 #File: client.py
 #Run with: "python ./client.py" 
 #Tested with: Python 2.7.3
+#Cite: http://stackoverflow.com/questions/5161166/python-handling-specific-error-codes
+#TODO With more than one client, they can't see each others data
 
 import socket
 import errno
@@ -15,15 +17,6 @@ import signal
 VERSION = "P2P-CI/1.0"
 sport = 7734#Server's well-known port
 OS = sys.platform
-
-#Cite: http://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python
-def signal_handler(signal, frame):
-    print 'Shutting down client'
-    # TODO do_goodbye()
-    s.close
-    p.terminate()
-    sys.exit(0)
-signal.signal(signal.SIGINT, signal_handler)
 
 #Spawn upload server process
 uport = random.randint(45000, 60000)#Upload port
@@ -78,18 +71,21 @@ p = Process(target=ul_server, args=(uport,))
 p.daemon = True
 p.start()
 
+#Get peer's IP address
+#s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#s.connect(('google.com', 0))
+#me = s.getsockname()[0]
+me = socket.gethostbyname(socket.gethostname())
+
 #Open server connection
 s = socket.socket()
-me = socket.gethostname()
 server = me #Assuming client and server are on the same machine
-
-#Cite: http://stackoverflow.com/questions/5161167/python-handling-specific-error-codes
 try:
     s.connect((server, sport))
 except socket.error, v:
     errorcode=v[0]
     if errorcode==errno.ECONNREFUSED:
-        print "There is no server on " + server
+        print "PEER: There is no server on " + server
 
 #Define messages to server
 def do_add(rfc_num, title, host = me, port = uport):
@@ -135,6 +131,16 @@ def do_hello(host = me, OS = OS, uport = uport):
     print "PEER FROM SERVER: \n" + response,
     #validate response
 
+def do_goodbye(host = me, OS = OS, uport = uport):
+    """Send GOODBYE message to server, including hostname and upload port"""
+    s.send("GOODBYE " + VERSION + "\r\n" + "Host: "
+    + str(host) + "\r\n" + "OS: " + str(OS) + "\r\n" + "Upload port: "
+    + str(uport) + "\r\n\r\n")
+
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: \n" + response,
+    #validate response
+
 # Define messages to peers TODO Currently sends to server. Need to lookup peer host and upload port, then send connect and message them.
 def do_get(rfc_num, host = me, OS = OS):
     """Request an RFC from a peer"""
@@ -146,7 +152,16 @@ def do_get(rfc_num, host = me, OS = OS):
     #validate response
 
 
-time.sleep(.5)#Might should use a lock here TODO stretch requirement
+#Cite: http://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python
+def signal_handler(signal, frame):
+    print 'Shutting down client'
+    do_goodbye()
+    s.close
+    p.terminate()
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
+time.sleep(2)#Might should use a lock here TODO stretch requirement
 
 # Send peer's hostname and upload port to server
 do_hello()
@@ -166,6 +181,8 @@ while True:
         if len(command) != 1:
             print "Usage: exit"
             continue
+        print 'Shutting down client'
+        do_goodbye()
         s.close
         p.terminate()
         sys.exit(0)
