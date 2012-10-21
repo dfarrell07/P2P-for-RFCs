@@ -4,7 +4,7 @@
 
 import socket
 from multiprocessing import Process
-import sys
+import sys, errno
 
 VERSION = "P2P-CI/1.0"
 
@@ -94,14 +94,24 @@ def manage_peer(con, addr):
         #Get message from peer
         message = con.recv(4096)
         if message == "":
-            print "Message from peer was null\n" + message,
-            con.send("Your message was null:\n" + message)
+            print "Message from peer was null\n" + message, #TODO maybe remove
+            try:
+                con.send("Your message was null:\n" + message)
+            except IOError, e:
+                if e.errno == errno.EPIPE:
+                    print "SERVER: Peer " + str(addr) + " left without saying GOODBYE."
+                    con.close()
+                    sys.exit(1)
             continue
         marray = message.lower().split()
 
         #Handle message
         #TODO Need to add version checks
-        if marray[0] == 'list' and marray[1] == 'all' and marray[3] == 'host:' and marray[5] == 'port:': 
+        if marray[0] == 'hello' and marray[1] == str(VERSION).lower() and marray[2] == 'host:' and marray[4] == 'os:' and marray[6] == 'upload' and marray[7] == 'port:':
+            print "SERVER: Recieved HELLO: \n" + message,
+            pll.add(marray[3], marray[8])#hostname, port
+            con.send(VERSION + " 200 OK\r\nYour host: " + marray[3] + "\r\nYour upload port: " + marray[8] + "\r\n\r\n") 
+        elif marray[0] == 'list' and marray[1] == 'all' and marray[3] == 'host:' and marray[5] == 'port:': 
             print "SERVER: Recieved LIST: \n" + message,
             rfc_list = rll.print_list()
             if rfc_list != "":

@@ -10,10 +10,20 @@ import sys
 import time
 from multiprocessing import Process, Value
 import datetime
+import signal
 
 VERSION = "P2P-CI/1.0"
 sport = 7734#Server's well-known port
 OS = sys.platform
+
+#Cite: http://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python
+def signal_handler(signal, frame):
+    print 'Shutting down client'
+    # TODO do_goodbye()
+    s.close
+    p.terminate()
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
 
 #Spawn upload server process
 uport = random.randint(45000, 60000)#Upload port
@@ -93,7 +103,7 @@ def do_add(rfc_num, title, host = me, port = uport):
 #        host=host, port=port, title=title))
 
     response = str(s.recv(2048))
-    print "PEER FROM SERVER: " + response,
+    print "PEER FROM SERVER: \n" + response,
     #validate response
 
 def do_lookup(rfc_num, title, host = me, port = uport):
@@ -103,7 +113,7 @@ def do_lookup(rfc_num, title, host = me, port = uport):
     + str(title) + "\r\n\r\n")
 
     response = str(s.recv(2048))
-    print "PEER FROM SERVER: " + response,
+    print "PEER FROM SERVER: \n" + response,
     #validate response
 
 def do_list(host = me, port = uport):
@@ -112,7 +122,17 @@ def do_list(host = me, port = uport):
     + "Port: " + str(port) + "\r\n\r\n")
 
     response = str(s.recv(2048))
-    print "PEER FROM SERVER: " + response,
+    print "PEER FROM SERVER: \n" + response,
+    #validate response
+
+def do_hello(host = me, OS = OS, uport = uport):
+    """Send HELLO message to server, including hostname and upload port"""
+    s.send("HELLO " + VERSION + "\r\n" + "Host: "
+    + str(host) + "\r\n" + "OS: " + str(OS) + "\r\n" + "Upload port: "
+    + str(uport) + "\r\n\r\n")
+
+    response = str(s.recv(2048))
+    print "PEER FROM SERVER: \n" + response,
     #validate response
 
 # Define messages to peers TODO Currently sends to server. Need to lookup peer host and upload port, then send connect and message them.
@@ -122,16 +142,18 @@ def do_get(rfc_num, host = me, OS = OS):
     + str(host) + "\r\n" + "OS: " + str(OS) + "\r\n\r\n")
 
     response = str(s.recv(2048))
-    print "PEER FROM SERVER: " + response,
+    print "PEER FROM SERVER: \n" + response,
     #validate response
 
 
-# TODO Send peer's hostname and upload port to server QUESTION: There's no message defined for this, although ADD would work. But, what if the peer doesn't have any RFCs to add?
+time.sleep(.5)#Might should use a lock here TODO stretch requirement
+
+# Send peer's hostname and upload port to server
+do_hello()
 
 # TODO Send peer's RFCs QUESTION: how do we get these - search directory? input by user?
 
 # Take commands from user via CLI and send messages to server and peers
-time.sleep(.3)#Might should use a lock here TODO stretch requirement
 while True:
     #Take command from user
     command = raw_input("=> ")
@@ -141,18 +163,36 @@ while True:
 
     #Handle command
     if command[0] == "exit":
+        if len(command) != 1:
+            print "Usage: exit"
+            continue
         s.close
         p.terminate()
         sys.exit(0)
     elif command[0] == "get":
+        if len(command) != 2:
+            print "Usage: get <rfc_num>"
+            continue
         do_get(command[1])
     elif command[0] == "list":
+        if len(command) != 1:
+            print "Usage: list"
+            continue
         do_list()
     elif command[0] == "lookup":
+        if len(command) != 3:
+            print "Usage: lookup <rfc_num> <rfc_title>"
+            continue
         do_lookup(command[1], command[2])
     elif command[0] == "add":
+        if len(command) != 3:
+            print "Usage: add <rfc_num> <rfc_title>"
+            continue
         do_add(command[1], command[2])
     elif command[0] == "help":
+        if len(command) != 1:
+            print "Usage: help"
+            continue
         print "help\t:\tPrint this help message"
         print "exit\t:\tClose the peer's connections and process"
         print "get <rfc_num>\t:\tDownload the given RFC"
