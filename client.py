@@ -3,7 +3,6 @@
 #Run with: "python ./client.py" 
 #Tested with: Python 2.7.3
 #Cite: http://stackoverflow.com/questions/5161166/python-handling-specific-error-codes
-#TODO With more than one client, they can't see each others data
 
 import socket
 import errno
@@ -13,16 +12,42 @@ import time
 from multiprocessing import Process, Value
 import datetime
 import signal
+import os
+import glob
+from collections import namedtuple
 
 VERSION = "P2P-CI/1.0"
 sport = 7734#Server's well-known port
 OS = sys.platform
+watch_dir = "./watch"
+
+#Discover RFCs
+rfc = namedtuple("rfc", ["num", "title", "mtime", "size", "data"])
+
+if not os.path.exists(watch_dir):
+    os.makedirs(watch_dir)
+
+os.chdir(watch_dir)
+files = []
+def update_files(files=files):
+    for f in glob.glob("*"):
+        statbuf = os.stat(f)
+        fd = open(f, 'r')
+        files.append(rfc(num=f.split()[0], title=f.split()[1], mtime=statbuf.st_mtime, size=statbuf.st_size, data=fd.read()))
+        fd.close()
+
+update_files()
+
+def get_rfc(rfc_num):
+    for i in range(len(files)):
+        if files[i].num == rfc_num:
+            return files[i]
+    return ""
 
 #Spawn upload server process
 uport = random.randint(45000, 60000)#Upload port
 
 def ul_server(uport):
-    """TODO"""
     #Listen on uport
     s = socket.socket()
     host = socket.gethostname()
@@ -36,7 +61,7 @@ def ul_server(uport):
         marray = message.split()
 
         #Validate message
-        if marray[0] != 'GET' or marray[4] != 'Host:' or marray[6] != 'OS:':
+        if marray[0] != 'GET' or marray[1] != "RFC" or marray[4] != 'Host:' or marray[6] != 'OS:':
             con.send(VERSION + "400 Bad Request\r\nDate: " 
             + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"))
             + "\r\nOS: " + OS)
@@ -47,18 +72,16 @@ def ul_server(uport):
             + "\r\nOS: " + OS)
             continue
 
-
-        #Lookup RFC TODO - how we we get the RFCs?
-
-        
-        if True: #TODO If RFC found
+        #Respond
+        resp_rfc = get_rfc(rfc_num=marray[2])
+        if resp_rfc != "":
             con.send(VERSION + "200 OK \r\nDate: " 
                 + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")) 
                 + "\r\nOS: " + OS + "\r\nLast-Modified: " 
-                + TODO_lm + "\r\nContent-Length: " 
-                + TODO_cl + "\r\nContent-Type: text/plain\r\n" + TODO_data)
+                + resp_rfc.mtime + "\r\nContent-Length: "#TODO convert to proper time format 
+                + resp_rfc.size + "\r\nContent-Type: text/plain\r\n" + resp_rfc.data)
             continue
-        else: #TODO If RFC not found
+        else:
             con.send(VERSION + "404 Not Found\r\nDate: " 
                 + str(datetime.datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT"))
                 + "\r\nOS: " + OS)
@@ -93,10 +116,6 @@ def do_add(rfc_num, title, host = me, port = uport):
     s.send("ADD RFC " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
     + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
     + str(title) + "\r\n\r\n")
-
-#    s.send('ADD {rfc_num!s} {version!s}\r\nHost: {host!s}\r\nPort: {port!s}\r\nTitle: '
-#        + '{title!s}\r\n\r\n'.format(rfc_num=rfc_num, version=VERSION, \
-#        host=host, port=port, title=title))
 
     response = str(s.recv(2048))
     print "PEER FROM SERVER: \n" + response,
@@ -150,6 +169,10 @@ def do_get(rfc_num, host = me, OS = OS):
     response = str(s.recv(2048))
     print "PEER FROM SERVER: \n" + response,
     #validate response
+    #TODO need to generate file from response
+    update_files()
+    new_rfc = get_rfc(str(rfc_num))
+    do_add(new_rfc.num, new_rfc.title)
 
 
 #Cite: http://stackoverflow.com/questions/1112343/how-do-i-capture-sigint-in-python
@@ -161,12 +184,14 @@ def signal_handler(signal, frame):
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
-time.sleep(2)#Might should use a lock here TODO stretch requirement
+time.sleep(.5)#Might should use a lock here TODO stretch requirement
 
 # Send peer's hostname and upload port to server
 do_hello()
 
-# TODO Send peer's RFCs QUESTION: how do we get these - search directory? input by user?
+# Send peer's RFCs
+for i in range(len(files)):
+    do_add(files[i].num, files[i].title)
 
 # Take commands from user via CLI and send messages to server and peers
 while True:

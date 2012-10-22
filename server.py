@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 #Cite: http://www.tutorialspoint.com/python/python_networking.htm
+"""Note: If we only store a hostname with RFC info (per spec)
+it's I can't ID which RFCs belong to a peer if more than one peer
+is running on the same host. So, going to store port in that ll as well."""
 
 import socket
 from multiprocessing import Process, Manager
@@ -9,10 +12,10 @@ from collections import namedtuple
 VERSION = "P2P-CI/1.0"
 
 #Linked list that can be shared between processes
-#Note: I bild a 'normal' ll, but then learned that it couldn't be shared
-#Reason: http://stackoverflow.com/questions/1268252/python-possible-to-share-in-memory-data-between-2-separate-processes/1269055#1269055
-#I can provide the ll if needed, it's in my git history
-rfc_node = namedtuple("rfc_node", ["rfc_num", "rfc_title", "hostname"])
+"""Note: I bild a 'normal' ll, but then learned that it couldn't be shared
+Reason: http://goo.gl/0wCj5
+I can provide the ll if needed, it's in my git history"""
+rfc_node = namedtuple("rfc_node", ["rfc_num", "rfc_title", "hostname", "port"])
 peer_node = namedtuple("peer_node", ["hostname", "port"])
 
 manager = Manager()
@@ -21,11 +24,12 @@ rll = manager.list()
 pll = manager.list()
 
 #Functions for managing linked list
-def remove_rfcs_by_host(hostname):
+#TODO Need to always use hostname, port to ID peer
+def remove_rfcs_by_host(hostname, port):
     removed = 0
     for i in range(len(rll)):
         i -= removed
-        if rll[i].hostname == hostname:
+        if rll[i].hostname == hostname and rll[i].port == port:
             del rll[i]
             removed += 1
 
@@ -39,13 +43,13 @@ def get_hosts_by_rfc(rfc_num, rfc_title):
     result = ""
     for i in range(len(rll)):
         if rll[i].rfc_num == rfc_num and rll[i].rfc_title == rfc_title:
-            result += str(rll[i].rfc_num) + " " + rll[i].rfc_title + " " + rll[i].hostname + " " + str(get_ul_port(rll[i].hostname)) + "\r\n"
+            result += str(rll[i].rfc_num) + " " + rll[i].rfc_title + " " + rll[i].hostname + " " + str(rll[i].port) + "\r\n"
     return result
 
 def print_rll():
     result = ""
     for i in range(len(rll)):
-        result += str(rll[i].rfc_num) + " " + rll[i].rfc_title + " " + rll[i].hostname + " " + str(get_ul_port(rll[i].hostname)) + "\r\n"
+        result += str(rll[i].rfc_num) + " " + rll[i].rfc_title + " " + rll[i].hostname + " " + str(rll[i].port) + "\r\n"
     return result 
 
 def is_new_peer(hostname, port):
@@ -74,7 +78,7 @@ def manage_peer(con, addr):
                 if e.errno == errno.EPIPE:
                     print "SERVER: Peer " + str(addr) + " left without saying GOODBYE."
                     del pll[pll.index(peer_node(hostname=socket.gethostbyname(addr[0]), port=addr[1]))]
-                    remove_rfcs_by_host(socket.gethostbyname(addr[0]))
+                    remove_rfcs_by_host(hostname=socket.gethostbyname(addr[0]), port=addr[1])
                     con.close()
                     sys.exit(0)
             continue
@@ -104,13 +108,13 @@ def manage_peer(con, addr):
                 con.send(VERSION + " 404 Not Found\r\n\r\n")
         elif marray[0] == 'add' and marray[1] == 'rfc' and marray[3] == str(VERSION).lower() and marray[4] == 'host:' and marray[6] == 'port:' and marray[8] == 'title:':
             print "SERVER: Recieved ADD: \n" + message,
-            rll.append(rfc_node(rfc_num=marray[2], rfc_title=marray[9], hostname=marray[5]))
+            rll.append(rfc_node(rfc_num=marray[2], rfc_title=marray[9], hostname=marray[5], port=marray[7]))
             con.send(VERSION + " 200 OK\r\nRFC " + marray[2] + " " + marray[9] + " " + marray[5] + " " + marray[7] + "\r\n\r\n")
         elif marray[0] == 'goodbye' and marray[1] == str(VERSION).lower() and marray[2] == 'host:' and marray[4] == 'os:' and marray[6] == 'upload' and marray[7] == 'port:':
             print "SERVER: Recieved GOODBYE: \n" + message,
             if get_ul_port(marray[3]) != "":
                 del pll[pll.index(peer_node(hostname=marray[3], port=marray[8]))]
-                remove_rfcs_by_host(marray[3])
+                remove_rfcs_by_host(hostname=marray[3], port=marray[8])
                 con.send(VERSION + " 200 OK\r\nYour host: " + marray[3] + "\r\nYour upload port: " + marray[8] + "\r\n\r\n")
             else:
                 con.send(VERSION + " 400 Bad Request\r\n\r\n")
