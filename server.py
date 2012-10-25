@@ -16,7 +16,7 @@ VERSION = "P2P-CI/1.0"
 Reason: http://goo.gl/0wCj5
 I can provide the ll if needed, it's in my git history"""
 rfc_node = namedtuple("rfc_node", ["rfc_num", "rfc_title", "hostname", "port"])
-peer_node = namedtuple("peer_node", ["hostname", "port"])
+peer_node = namedtuple("peer_node", ["hostname", "uport"])
 
 manager = Manager()
 
@@ -36,7 +36,7 @@ def remove_rfcs_by_host(hostname, port):
 def get_ul_port(hostname):
     for i in range(len(pll)):
         if pll[i].hostname == hostname:
-            return pll[i].port
+            return pll[i].uport
     return ""
 
 def get_hosts_by_rfc(rfc_num, rfc_title):
@@ -52,7 +52,7 @@ def print_rll():
         result += str(rll[i].rfc_num) + " " + rll[i].rfc_title + " " + rll[i].hostname + " " + str(rll[i].port) + "\r\n"
     return result 
 
-def is_new_peer(hostname, port):
+def is_new_peer(hostname, uport):
     for i in range(len(pll)):
         if pll[i].hostname == hostname and pll[i] == port:
             return False
@@ -76,8 +76,9 @@ def manage_peer(con, addr):
                 con.send("Your message was null:\n" + message)
             except IOError, e:
                 if e.errno == errno.EPIPE:
-                    print "SERVER: Peer " + str(addr) + " left without saying GOODBYE."
-                    del pll[pll.index(peer_node(hostname=socket.gethostbyname(addr[0]), port=addr[1]))]
+                    print "SERVER: Peer " + str(addr) + " left without saying GOODBYE." + socket.gethostbyname(addr[0]) + ":" + get_ul_port(socket.gethostbyname(addr[0]))
+                    #TODO currently can't del from pll here because host is localhost, not 127.0.0.1 (like peer adverts) and we don't have uport
+                    #del pll[pll.index(peer_node(hostname=socket.gethostbyname(addr[0]), uport=addr[1]))]
                     remove_rfcs_by_host(hostname=socket.gethostbyname(addr[0]), port=addr[1])
                     con.close()
                     sys.exit(0)
@@ -87,8 +88,8 @@ def manage_peer(con, addr):
         #Handle message
         if marray[0] == 'hello' and marray[1] == str(VERSION).lower() and marray[2] == 'host:' and marray[4] == 'os:' and marray[6] == 'upload' and marray[7] == 'port:':
             print "SERVER: Recieved HELLO: \n" + message,
-            if is_new_peer(marray[3], marray[8]):
-                pll.append(peer_node(hostname=marray[3], port=marray[8]))
+            if is_new_peer(hostname=marray[3], uport=marray[8]):
+                pll.append(peer_node(hostname=marray[3], uport=marray[8]))
                 con.send(VERSION + " 200 OK\r\nYour host: " + marray[3] + "\r\nYour upload port: " + marray[8] + "\r\n\r\n") 
             else:
                 con.send(VERSION + " 400 Bad Request\r\n\r\n")
@@ -113,7 +114,7 @@ def manage_peer(con, addr):
         elif marray[0] == 'goodbye' and marray[1] == str(VERSION).lower() and marray[2] == 'host:' and marray[4] == 'os:' and marray[6] == 'upload' and marray[7] == 'port:':
             print "SERVER: Recieved GOODBYE: \n" + message,
             if get_ul_port(marray[3]) != "":
-                del pll[pll.index(peer_node(hostname=marray[3], port=marray[8]))]
+                del pll[pll.index(peer_node(hostname=marray[3], uport=marray[8]))]
                 remove_rfcs_by_host(hostname=marray[3], port=marray[8])
                 con.send(VERSION + " 200 OK\r\nYour host: " + marray[3] + "\r\nYour upload port: " + marray[8] + "\r\n\r\n")
             else:
