@@ -1,1 +1,9 @@
-This is a stub
+Author: Daniel Farrell
+License: Use freely
+
+1. Start a server with 'python server.py &'
+2. Start any number of clients with 'python client.py'
+
+RFCs of the form num_name (as the IETF names them) should be put in the ./watch directory. If the a client is started and no such directory exists, one will be created.
+
+See the 'help' command for basic commands and the requirement specifican (proj1.pdf) for details.

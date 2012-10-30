@@ -4,12 +4,13 @@
 # Tested with: Python 2.7.3
 # Cite: http://goo.gl/MuP4t
 # Cite: http://goo.gl/Ql3f5
-# TODO: Test on remote hosts
+#TODO Test on remote hosts
 
 import socket
 import errno
 import random
 import sys
+#import time
 from multiprocessing import Process
 import datetime
 import signal
@@ -35,12 +36,11 @@ if DEBUG:
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 def SIGCHLD_handler(signal, frame):
-    """Check exit status of children to avoid zombies"""
     try:
         tpid = os.waitpid(0, os.WNOHANG)
     except:
         if DEBUG:
-            print "PEER: Caught an error in SIGCHLD handler"
+            print "PEER: Caught an error in SIGCHILD handler"
         return
     if DEBUG:
         print "PEER: Child process with PID", tpid, "closed"
@@ -50,25 +50,23 @@ signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 if not os.path.exists(watch_dir):
     print "No watch directory exists.",
     os.makedirs(watch_dir)
-    print "A new watch directory has been created."
+    print "A new watch directory has been creatd."
 
 os.chdir(watch_dir)
 # Note: The modified time seems to not be very precise
 def update_files():
-    """Collect info of files in watch_dir"""
     global files
     files = []
     for f in glob.glob("*"):
         statbuf = os.stat(f)
         fd = open(f, 'r')
-        files.append(rfc(num = f.split()[0], title = f.split()[1], \
-            mtime = statbuf.st_mtime, size = statbuf.st_size, data = fd.read()))
+        files.append(rfc(num=f.split()[0], title=f.split()[1], \
+            mtime=statbuf.st_mtime, size=statbuf.st_size, data=fd.read()))
         fd.close()
 
 update_files()
 
 def get_rfc(rfc_num):
-    """Get the details of the RFC with the given number"""
     global files
     for i in range(len(files)):
         if files[i].num == rfc_num:
@@ -79,7 +77,6 @@ def get_rfc(rfc_num):
 uport = random.randint(45000, 60000)# Upload port
 
 def ul_server(uport):
-    """Manage all requests from peers"""
     # Listen on uport
     s = socket.socket()
     host = socket.gethostname()
@@ -123,7 +120,7 @@ def ul_server(uport):
             print "PEER: Message is valid"
 
         # Respond to peer
-        resp_rfc = get_rfc(rfc_num = marray[2])
+        resp_rfc = get_rfc(rfc_num=marray[2])
         if resp_rfc != "":
             if DEBUG:
                 print "PEER: Sending RFC"
@@ -144,11 +141,14 @@ def ul_server(uport):
                 + "\r\nOS: " + OS)
             continue
 
-p = Process(target = ul_server, args = (uport,))
+p = Process(target=ul_server, args=(uport,))
 p.daemon = True
 p.start()
 
 # Get peer's IP address
+#s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#s.connect(('google.com', 0))
+#me = s.getsockname()[0]
 me = socket.gethostbyname(socket.gethostname())
 
 # Open server connection
@@ -200,7 +200,7 @@ def do_add(rfc_num, title, host = me, port = uport):
         print "Unknown response from server:\n" + response,
 
 def do_lookup(rfc_num, title, host = me, port = uport):
-    """Find peers that have the specified RFC"""
+    """Find peers that have the specifed RFC"""
     try:
         s.send("LOOKUP RFC " + str(rfc_num) + " " + VERSION + "\r\n" + "Host: " 
             + str(host) + "\r\n" + "Port: " + str(port) + "\r\n" + "Title: " 
@@ -225,8 +225,9 @@ def do_lookup(rfc_num, title, host = me, port = uport):
     if rarray[0] == VERSION and rarray[1] == "200" and rarray[2] == "OK":
         # Display RFCs to user
         rfcs = response.split("200 OK\r\n\r\n")[1]
-        return peer_rfc(rfc_num = rarray[3], rfc_title = rarray[4], \
-            hostname = rarray[5], port = rarray[6])
+        #print rfcs[:len(rfcs)-1],
+        return peer_rfc(rfc_num=rarray[3], rfc_title=rarray[4], \
+            hostname=rarray[5], port=rarray[6])
     # If RFC not found
     elif rarray[0] == VERSION and rarray[1] == "404" and rarray[2] == "Not" \
         and rarray[3] == "Found":
@@ -368,8 +369,8 @@ def do_get(rfc_num, rfc_title, host = me, OS = OS):
         p.connect((prfc.hostname, int(prfc.port)))
     except socket.error, v:
         print "PEER ERROR: There was a socket error"
-        errorcode = v[0]
-        if errorcode == errno.ECONNREFUSED:
+        errorcode=v[0]
+        if errorcode==errno.ECONNREFUSED:
             print "PEER ERROR: There is no peer on " + prfc.hostname + ":" \
                 + str(prfc.port)
             return
@@ -388,7 +389,7 @@ def do_get(rfc_num, rfc_title, host = me, OS = OS):
         else:
             print "PEER ERROR: There was an IOError", e.errno
 
-    # Receive response
+    # Recieve response
     response = str(p.recv(4096))
     if DEBUG:
         print "PEER FROM PEER: \n" + response,
@@ -428,7 +429,6 @@ def do_get(rfc_num, rfc_title, host = me, OS = OS):
 
 
 def SIGINT_handler(signal, frame):
-    """Close down properly when SIGINT is thrown"""
     print "\nShutting down client"
     do_goodbye()
     s.close
@@ -480,6 +480,11 @@ while True:
             print "The server doesn't know where to find RFC", command[1]
             continue
         print rrfc.rfc_num, rrfc.rfc_title, rrfc.hostname, rrfc.port
+#    elif command[0] == "add":
+#        if len(command) != 3:
+#            print "Usage: add <rfc_num> <rfc_title>"
+#            continue
+#        do_add(command[1], command[2])
     elif command[0] == "help":
         if len(command) != 1:
             print "Usage: help"
