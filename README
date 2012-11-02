@@ -6,4 +6,4 @@ License: Use freely
 
 RFCs of the form num_name (as the IETF names them) should be put in the ./watch directory. If the a client is started and no such directory exists, one will be created.
 
-See the 'help' command for basic commands and the requirement specifican (proj1.pdf) for details.
+See the 'help' command for basic commands and the requirement specification (proj1.pdf) for details.
