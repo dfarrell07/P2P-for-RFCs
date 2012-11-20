@@ -26,7 +26,13 @@ OS = sys.platform
 watch_dir = "./watch"
 peer_rfc = namedtuple("peer_rfc", ["rfc_num", "rfc_title", "hostname", "port"])
 rfc = namedtuple("rfc", ["num", "title", "mtime", "size", "data"])
-me = socket.gethostbyname(socket.gethostname())
+
+# Find my IP
+# Cite: http://is.gd/gLzpdS
+stmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+stmp.connect(("gmail.com",80))
+me = stmp.getsockname()[0]
+stmp.close()
 
 if DEBUG:
     print "PEER: You are in debug mode"
@@ -148,12 +154,9 @@ p = Process(target = ul_server, args = (uport,))
 p.daemon = True
 p.start()
 
-# Get peer's IP address
-me = socket.gethostbyname(socket.gethostname())
-
 # Open server connection
 s = socket.socket()
-server = me # Assuming client and server are on the same machine
+server = "10.0.0.2"
 try:
     s.connect((server, sport))
 except socket.error, e:

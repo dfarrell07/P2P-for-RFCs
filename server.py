@@ -35,9 +35,14 @@ def SIGCHLD_handler(signal, frame):
 signal.signal(signal.SIGCHLD, SIGCHLD_handler)
 
 # Setup networking
-s = socket.socket()
-host = socket.gethostbyname(socket.gethostname())
+# Cite: http://is.gd/gLzpdS
+stmp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+stmp.connect(("gmail.com",80))
+host = stmp.getsockname()[0]
 port = 7734# Well-known server port
+stmp.close()
+
+s = socket.socket()
 try:
     s.bind((host, port))
 except socket.error, e:
