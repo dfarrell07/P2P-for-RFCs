@@ -3,6 +3,7 @@
 # Run with: "python ./server.py &" 
 # Tested with: Python 2.7.3
 # Cite: http://www.tutorialspoint.com/python/python_networking.htm
+# Public Domain
 """
 Note: If we only store a hostname with RFC info (per spec)
 it's I can't ID which RFCs belong to a peer if more than one peer

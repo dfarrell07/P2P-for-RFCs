@@ -1,5 +1,5 @@
 Author: Daniel Farrell
-License: Use freely
+License: Public Domian
 
 1. Start a server with 'python server.py &'
 2. Start any number of clients with 'python client.py'

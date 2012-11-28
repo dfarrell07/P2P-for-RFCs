@@ -4,7 +4,7 @@
 # Tested with: Python 2.7.3
 # Cite: http://goo.gl/MuP4t
 # Cite: http://goo.gl/Ql3f5
-# TODO: Test on remote hosts
+# Public Domain
 
 import socket
 import errno
@@ -428,7 +428,6 @@ def do_get(rfc_num, rfc_title, host = me, OS = OS):
     do_add(new_rfc.num, new_rfc.title)
 
     print "Added RFC", new_rfc.num, new_rfc.title
-
 
 def SIGINT_handler(signal, frame):
     """Close down properly when SIGINT is thrown"""
