@@ -1,2 +1,3 @@
 cp ../client.py ./
+rm -f ./watch/*
 python client.py

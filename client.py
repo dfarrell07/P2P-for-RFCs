@@ -156,7 +156,7 @@ p.start()
 
 # Open server connection
 s = socket.socket()
-server = "10.0.0.2"
+server = "10.0.0.3"
 try:
     s.connect((server, sport))
 except socket.error, e:
